@@ -1,0 +1,6 @@
+{
+    "board": "arduino:avr:mega",
+    "port": "COM8",
+    "programmer": "arduino:avrispmkii",
+    "sketch": "HUD_V2022.ino"
+}
