@@ -1,21 +1,23 @@
-//*********************************************************************************************\\
-//Program Name: HUDR_V2022.ino
+//*********************************************************************************************//
+// Program Name: HUDR_V2022.ino
 // Written By: Aaron Jacobsen, Sean Smith, Trevor McFadden, and Cari Janssen
 // Function:  This program runs all the logic of the Heads-Up Display System and VPT System
+// More in-depth documentation of the code can be viewed at: https://docs.google.com/document/d/1ebYYVj_0Im3cEVpizzCzw-A3DkRRQ7Kt3Cyyll7n5Is
 //*********************************************************************************************//
 
-// Libraries
+// Libraries -- See section 1
 #include <LiquidCrystal.h>
 #include <time.h>
 #include <SPI.h>
 #include <SD.h>
 #include <TinyGPS.h>
 
-// Global Vars
+
+// Global Variables
 const String version = "V5.2"; // Used for the LCD and SD log. Probably unnecessary
 
-// times
-unsigned long startTime;
+// times -- See section 2.a
+unsigned long startTime; // Maintain the time in millis at the start of running the program
 unsigned long trackMinutes;
 unsigned long trackSeconds;
 unsigned long lapTime; // Current lap time
@@ -27,7 +29,7 @@ unsigned int lapCount = 0;  // Laps completed
 
 String prevLapString;
 
-// IO
+// IO -- See section 2.b
 const byte lapResetPin = 18;                                                                                                   // Button to reset lap timer
 const byte CS = 53;                                                                                                            // Pin used for MISO of SD card reader. byte to save memory, may not be necessary
 const byte RS = 30, E1 = 31, E2 = 32, RW = 33, DB0 = 34, DB1 = 35, DB2 = 36, DB3 = 37, DB4 = 38, DB5 = 39, DB6 = 40, DB7 = 41; // Pins used for the HUD LCD. byte to save memory, may not be necessary
@@ -36,12 +38,15 @@ const byte RS = 30, E1 = 31, E2 = 32, RW = 33, DB0 = 34, DB1 = 35, DB2 = 36, DB3
 LiquidCrystal top(RS, E1, DB4, DB5, DB6, DB7);
 LiquidCrystal bottom(RS, E2, DB4, DB5, DB6, DB7);
 
+
+/*
+ *  This is the main setup function that is ran when the arduino first runs.
+ *  For more information see section 3 of documentation
+ */
 void setup()
 {
-
     Serial.begin(9600);
-    while (!Serial)
-        ; // Wait for the serial port to connect. Needed
+    while (!Serial); // Wait for the serial port to connect. Needed
 
     // Set the start time of the program
     startTime = millis();
@@ -69,12 +74,19 @@ void setup()
         writeToSD(true);
 }
 
+/*
+ *  This is the main Loop function that is ran ever clock cycle
+ *  For more information see section 4 of documentation
+ */
 void loop()
 {
     displayLCD();
 }
 
-// Handle all lapping logic whenever a lap is complete
+/*  
+ *  Function that is attached to a pin interrupt to handle the functionality of counting laps and reseting lap timer
+ *  For more information see section 5 of documentation
+ */
 void lapReset()
 {
     Serial.println("Lap reset!");
@@ -85,6 +97,7 @@ void lapReset()
 }
 
 // Function to handle displaying data to the LCD
+// More information in section 4.a 
 void displayLCD()
 {
 
@@ -153,6 +166,7 @@ void displayLCD()
 }
 
 // Function to control writing to the SD card
+// More information in section 6 of documentation
 void writeToSD(bool firstStart)
 {
     File file = SD.open("Data.txt", FILE_WRITE); // TODO change filename to the date. Add folders for each day its tested? SD.mkdir()
