@@ -11,8 +11,6 @@
 #include <SD.h>
 #include <TinyGPS.h>
 
-// Test comment for github repo
-
 // Global Vars
 const String version = "V5.2"; // Used for the LCD and SD log. Probably unnecessary
 
