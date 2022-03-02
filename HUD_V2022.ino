@@ -22,6 +22,8 @@
 const String version = "V5.2"; // Used for the LCD and SD log. Probably unnecessary
 
 SdFat SD;
+NMEAGPS gps;
+File logFile;
 
 // times -- See section 2.a
 unsigned long startTime; // Maintain the time in millis at the start of running the program
@@ -46,6 +48,48 @@ LiquidCrystal top(RS, E1, DB4, DB5, DB6, DB7);
 LiquidCrystal bottom(RS, E2, DB4, DB5, DB6, DB7);
 
 
+void GPSLoop()
+{
+    if(gps.available()) {
+        gps_fix fix = gps.read();
+
+        if (fix.valid.location && fix.valid.time)
+        {
+            //Log / update data and stuff in here
+        }
+    }
+}
+
+void GPSisr(uint8_t c) 
+{
+    gps.handle(c);
+}
+
+// Waits until GPSisr provides a valid location
+void waitForGPS()
+{
+    DEBUG_PORT.println("Waiting for GPS data...");
+
+    int lastToggle = millis();
+
+    while(1) {
+        if(gps.available()) {
+            if(gps.read().valid.location)
+                break; // GPS verified location, can now break out of loop
+        }
+
+        // Flash LED until gps is found
+        if(millis() - lastToggle > 500) {
+            lastToggle += 500;
+            digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+        }
+    }
+
+    digitalWrite(LED_BUILTIN, LOW);
+
+    gps.overrun(false);
+}
+
 /*
  *  This is the main setup function that is ran when the arduino first runs.
  *  For more information see section 3 of documentation
@@ -55,6 +99,7 @@ void setup()
     DEBUG_PORT.begin(9600);
     while (!NeoSerial); // Wait for the serial port to connect. Needed
 
+    gpsPort.attachInterrupt(GPSisr); // Add interrupt so that the gps only fills buffer at intervals
     gpsPort.begin(9600); // start the gps port at 9600 baud
 
     // Set the start time of the program
@@ -74,6 +119,12 @@ void setup()
     top.begin(40, 2);
     bottom.begin(40, 2);
 
+    // Intialize the pin for the built in LED for gps debugging
+    pinMode(LED_BUILTIN, OUTPUT);
+
+    // Wait for GPS location
+    waitForGPS();
+
     // Initialize the SD card
     initSD();
 }
@@ -84,6 +135,7 @@ void setup()
  */
 void loop()
 {    
+    // GPSLoop();
     // displayLCD();
 }
 
@@ -169,8 +221,9 @@ void displayLCD()
     // if(lapCount>0) bottom.print(String(avgLapTime/60000) + ":" + (avgLapTime < 10 ? ("0" + String((avgLapTime%60000)/1000)) : String((avgLapTime%60000)/1000)));
 }
 
-void initSD() {
-    // Initialize the SD card module. Print error if it doesnt begin properly
+// Initialize the SD card module. Print error if it doesnt begin properly
+void initSD() 
+{
     if (!SD.begin(CS))
     {
         DEBUG_PORT.println("Failed to initialize the SD card...");
@@ -183,27 +236,27 @@ void initSD() {
 // More information in section 6 of documentation
 void writeToSD(bool firstStart)
 {
-    File file = SD.open("Data.txt", FILE_WRITE); // TODO change filename to the date. Add folders for each day its tested? SD.mkdir()
+    logFile = SD.open("Data.txt", FILE_WRITE); // TODO change filename to the date. Add folders for each day its tested? SD.mkdir()
     // File fileCSV = SD.open("Data.csv", FILE_WRITE); // TODO - write a CSV file to the sd card that contains time/lat/lon/general info. Use this file to map each lap/testing to a real map for analysis
 
     // Check file opened and write to it
-    if (file)
+    if (logFile)
     {
         // When the HUD is turned on, print a statement to create a break
         if (firstStart)
         {
-            file.println("----------------");
-            file.println("Starting log - " + String(" 99:99 mm/dd/yy") + String(" - program ver: " + version)); // TODO add date and time of log
-            file.println("----------------");
-            file.close();
+            logFile.println("----------------");
+            logFile.println("Starting log - " + String(" 99:99 mm/dd/yy") + String(" - program ver: " + version)); // TODO add date and time of log
+            logFile.println("----------------");
+            logFile.close();
             return;
         }
 
         // TODO get the propper formatting for the output
-        file.println("Testing writing to an SD card...");
+        logFile.println("Testing writing to an SD card...");
     }
     else
         DEBUG_PORT.println("Couldn't open the file in the SD card");
 
-    file.close();
+    logFile.close();
 }
