@@ -7,14 +7,21 @@
 
 // Libraries -- See section 1
 #include <LiquidCrystal.h>
-#include <time.h>
 #include <SPI.h>
-#include <SD.h>
-#include <TinyGPS.h>
+#include <SdFat.h>
+#include <NMEAGPS.h>
+#include <GPSport.h>
 
+// Check configuration
+
+// #ifndef NMEAGPS_INTERRUPT_PROCESSING
+//     #error You must define NMEAGPS_INTERRUPT_PROCESSING in NMEAGPS_cfg.h!
+// #endif
 
 // Global Variables
 const String version = "V5.2"; // Used for the LCD and SD log. Probably unnecessary
+
+SdFat SD;
 
 // times -- See section 2.a
 unsigned long startTime; // Maintain the time in millis at the start of running the program
@@ -30,8 +37,8 @@ unsigned int lapCount = 0;  // Laps completed
 String prevLapString;
 
 // IO -- See section 2.b
-const byte lapResetPin = 18;                                                                                                   // Button to reset lap timer
-const byte CS = 53;                                                                                                            // Pin used for MISO of SD card reader. byte to save memory, may not be necessary
+const byte lapResetPin = 18; // Button to reset lap timer
+const byte CS = 53; // Pin used for MISO of SD card reader. byte to save memory, may not be necessary
 const byte RS = 30, E1 = 31, E2 = 32, RW = 33, DB0 = 34, DB1 = 35, DB2 = 36, DB3 = 37, DB4 = 38, DB5 = 39, DB6 = 40, DB7 = 41; // Pins used for the HUD LCD. byte to save memory, may not be necessary
 
 // LCD Screen Declaration:
@@ -45,8 +52,10 @@ LiquidCrystal bottom(RS, E2, DB4, DB5, DB6, DB7);
  */
 void setup()
 {
-    Serial.begin(9600);
-    while (!Serial); // Wait for the serial port to connect. Needed
+    NeoSerial.begin(9600);
+    while (!NeoSerial); // Wait for the serial port to connect. Needed
+
+    NeoSerial2.begin(9600);
 
     // Set the start time of the program
     startTime = millis();
@@ -68,7 +77,7 @@ void setup()
     // Initialize the SD card module. Print error if it doesnt begin properly
     if (!SD.begin(CS))
     {
-        Serial.println("Failed to initialize the SD card...");
+        NeoSerial.println("Failed to initialize the SD card...");
     }
     else
         writeToSD(true);
@@ -79,8 +88,8 @@ void setup()
  *  For more information see section 4 of documentation
  */
 void loop()
-{
-    displayLCD();
+{    
+    // displayLCD();
 }
 
 /*  
@@ -89,7 +98,7 @@ void loop()
  */
 void lapReset()
 {
-    Serial.println("Lap reset!");
+    NeoSerial.println("Lap reset!");
     lapCount++;
     prevLapTime = lapTime;
     prevLapsTime += prevLapTime;
@@ -189,7 +198,7 @@ void writeToSD(bool firstStart)
         file.println("Testing writing to an SD card...");
     }
     else
-        Serial.println("Couldn't open the file in the SD card");
+        NeoSerial.println("Couldn't open the file in the SD card");
 
     file.close();
 }
