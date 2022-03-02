@@ -52,10 +52,10 @@ LiquidCrystal bottom(RS, E2, DB4, DB5, DB6, DB7);
  */
 void setup()
 {
-    NeoSerial.begin(9600);
+    DEBUG_PORT.begin(9600);
     while (!NeoSerial); // Wait for the serial port to connect. Needed
 
-    NeoSerial2.begin(9600);
+    gpsPort.begin(9600); // start the gps port at 9600 baud
 
     // Set the start time of the program
     startTime = millis();
@@ -74,13 +74,8 @@ void setup()
     top.begin(40, 2);
     bottom.begin(40, 2);
 
-    // Initialize the SD card module. Print error if it doesnt begin properly
-    if (!SD.begin(CS))
-    {
-        NeoSerial.println("Failed to initialize the SD card...");
-    }
-    else
-        writeToSD(true);
+    // Initialize the SD card
+    initSD();
 }
 
 /*
@@ -98,7 +93,7 @@ void loop()
  */
 void lapReset()
 {
-    NeoSerial.println("Lap reset!");
+    DEBUG_PORT.println("Lap reset!");
     lapCount++;
     prevLapTime = lapTime;
     prevLapsTime += prevLapTime;
@@ -174,6 +169,16 @@ void displayLCD()
     // if(lapCount>0) bottom.print(String(avgLapTime/60000) + ":" + (avgLapTime < 10 ? ("0" + String((avgLapTime%60000)/1000)) : String((avgLapTime%60000)/1000)));
 }
 
+void initSD() {
+    // Initialize the SD card module. Print error if it doesnt begin properly
+    if (!SD.begin(CS))
+    {
+        DEBUG_PORT.println("Failed to initialize the SD card...");
+    }
+    else
+        writeToSD(true);
+}
+
 // Function to control writing to the SD card
 // More information in section 6 of documentation
 void writeToSD(bool firstStart)
@@ -198,7 +203,7 @@ void writeToSD(bool firstStart)
         file.println("Testing writing to an SD card...");
     }
     else
-        NeoSerial.println("Couldn't open the file in the SD card");
+        DEBUG_PORT.println("Couldn't open the file in the SD card");
 
     file.close();
 }
