@@ -12,11 +12,6 @@
 #include <NMEAGPS.h>
 #include <GPSport.h>
 
-// Check configuration
-
-// #ifndef NMEAGPS_INTERRUPT_PROCESSING
-//     #error You must define NMEAGPS_INTERRUPT_PROCESSING in NMEAGPS_cfg.h!
-// #endif
 
 // Global Variables
 const String version = "V5.2"; // Used for the LCD and SD log. Probably unnecessary
@@ -56,6 +51,11 @@ void GPSLoop()
         if (fix.valid.location && fix.valid.time)
         {
             //Log / update data and stuff in here
+            unsigned int startLogTime = millis();
+
+            DEBUG_PORT.print(fix.latitudeL(), 6);
+            DEBUG_PORT.println();
+            
         }
     }
 }
@@ -135,8 +135,14 @@ void setup()
  */
 void loop()
 {    
-    // GPSLoop();
-    // displayLCD();
+    GPSLoop();
+    displayLCD();
+
+    if (gps.overrun())
+    {
+        gps.overrun(false);
+        DEBUG_PORT.println(F("DATA OVERRUN: fix data lost!"));
+    }
 }
 
 /*  
@@ -226,7 +232,7 @@ void initSD()
 {
     if (!SD.begin(CS))
     {
-        DEBUG_PORT.println("Failed to initialize the SD card...");
+        DEBUG_PORT.println("Failed to initialize the SD card...    Will not log this run");
     }
     else
         writeToSD(true);
