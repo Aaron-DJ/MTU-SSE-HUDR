@@ -68,18 +68,22 @@ void GPSLoop()
         // Found a valid GPS signal with proper location and time, any logging and data updating should be done within this if statement
         if (fix.valid.location && fix.valid.time)
         {
-            unsigned int startLogTime = millis();
+            uint16_t lastLoggingTime = 0;
+            uint16_t startLogTime = millis();
 
-            // Update all of the data in currentGPSData
-            currentGPSData.lat = (fix.latitudeL() / 10000000.0f);
-            currentGPSData.lng = (fix.longitudeL() / 10000000.0f);
-            currentGPSData.alt = (fix.altitude() * 3.281f); // Convert meters to feet
-            currentGPSData.speedMPH = fix.speed_mph();
-            currentGPSData.dateTime = fix.dateTime;
-            currentGPSData.latErr = fix.lat_err() * 3.281f;
-            currentGPSData.lngErr = fix.lon_err() * 3.281f;
-            currentGPSData.altErr = fix.alt_err() * 3.281f;
+            updateGPSdata(fix);
 
+            logGPSdata();
+            lastLoggingTime = millis() - startLogTime;
+
+            // Flush the file buffer ever second. Necessary to get data into log
+            // This should be updated at somepoint with a file.close() attached to some sort of paramater
+            uint16_t lastFlushTime = 0;
+
+            if(startLogTime - lastFlushTime > 1000) {
+                lastFlushTime = startLogTime;
+                logFile.flush();
+            }
 
             // Update the last point to the current to be used at next interval
             lastGPSData = currentGPSData;
@@ -88,6 +92,57 @@ void GPSLoop()
     }
 }
 
+// Write all of the required GPS data to the logFile
+void logGPSdata() 
+{
+    // Print all of the time data into the first spot
+    logFile.print(
+        String(currentGPSData.dateTime.month) + "/" +
+        String(currentGPSData.dateTime.date) + "/" +
+        String(currentGPSData.dateTime.year) + " " +
+        String(currentGPSData.dateTime.hours) + ":");
+
+    if (currentGPSData.dateTime.minutes >= 10)
+        logFile.print(String(currentGPSData.dateTime.minutes) + ":");
+    else
+        logFile.print("0" + String(currentGPSData.dateTime.minutes) + ":");
+    
+    if (currentGPSData.dateTime.seconds >= 10)
+        logFile.print(String(currentGPSData.dateTime.seconds) + ",");
+    else 
+        logFile.print("0" + String(currentGPSData.dateTime.seconds) + ",");
+
+    logFile.print(String(trackMinutes) + ":");
+    if(trackSeconds >= 10)
+        logFile.print(String(trackSeconds) + ","); // Log the elapsed time
+    else    
+        logFile.print("0" + String(trackSeconds) + ",");
+
+    logFile.print(String(lapCount) + ",");
+
+    logFile.print(String(currentGPSData.lat) + ",");
+    logFile.print(String(currentGPSData.lng) + ",");
+    logFile.print(String(currentGPSData.alt) + ",");
+
+    logFile.print(String(currentGPSData.speedMPH));
+    logFile.println();
+}
+
+// Updates all the data in the gpsdata struct by taking in a gps_fix
+void updateGPSdata(gps_fix fix) 
+{
+    // Update all of the data in currentGPSData
+    currentGPSData.lat = (fix.latitudeL() / 10000000.0f);
+    currentGPSData.lng = (fix.longitudeL() / 10000000.0f);
+    currentGPSData.alt = (fix.altitude() * 3.281f); // Convert meters to feet
+    currentGPSData.speedMPH = fix.speed_mph();
+    currentGPSData.dateTime = fix.dateTime;
+    currentGPSData.latErr = fix.lat_err() * 3.281f;
+    currentGPSData.lngErr = fix.lon_err() * 3.281f;
+    currentGPSData.altErr = fix.alt_err() * 3.281f;
+}
+
+// Called whenever the gps sends an interrupt to the arduino
 void GPSisr(uint8_t c) 
 {
     gps.handle(c);
@@ -102,7 +157,9 @@ void waitForGPS()
 
     while(1) {
         if(gps.available()) {
-            if(gps.read().valid.location)
+            gps_fix fix = gps.read();
+            if(fix.valid.location && fix.valid.time)
+                updateGPSdata(fix);
                 break; // GPS verified location, can now break out of loop
         }
 
@@ -125,7 +182,7 @@ void waitForGPS()
 void setup()
 {
     DEBUG_PORT.begin(9600);
-    while (!NeoSerial); // Wait for the serial port to connect. Needed
+    while (!DEBUG_PORT); // Wait for the serial port to connect. Needed
 
     gpsPort.attachInterrupt(GPSisr); // Add interrupt so that the gps only fills buffer at intervals
     gpsPort.begin(9600); // start the gps port at 9600 baud
@@ -258,14 +315,15 @@ void displayLCD()
 // Initialize the SD card module. Print error if it doesnt begin properly
 void initSD() 
 {
+    
     if (!SD.begin(CS))
     {
         DEBUG_PORT.println("Failed to initialize the SD card...    Will not log this run");
     }
     else
     {
-        String date = String(currentGPSData.dateTime.month + "_") + String(currentGPSData.dateTime.date + "_") + String(currentGPSData.dateTime.year);
-
+        String date = String(currentGPSData.dateTime.month) + "_" + String(currentGPSData.dateTime.date) + "_" + String(currentGPSData.dateTime.year);
+        DEBUG_PORT.println("Date: " + date);
         if (SD.exists("/" + date))
         {
             SD.chdir("/" + date);
@@ -273,8 +331,14 @@ void initSD()
             SD.mkdir(date);
             SD.chdir("/" + date);
         }
-        
-        writeToSD(true);
+
+        String time = String(currentGPSData.dateTime.hours) + String(currentGPSData.dateTime.minutes) + String(currentGPSData.dateTime.seconds);
+
+        logFile = SD.open(time + ".txt", FILE_WRITE);
+
+        logFile.println("Date_Time,Elapsed_Time,Lap,Latitude,Longitude,Elevation,Speed");
+        // Temp remove this, look into for future... Reading and closing file is not feasable. Add switch for logging?
+        // writeToSD(true);
     }
 }
 
@@ -282,7 +346,7 @@ void initSD()
 // More information in section 6 of documentation
 void writeToSD(bool firstStart)
 {
-    logFile = SD.open("Data.txt", FILE_WRITE); // TODO change filename to the date. Add folders for each day its tested? SD.mkdir()
+    logFile = SD.open("Data.txt", FILE_WRITE); // TODO change filename to the date.
     // File fileCSV = SD.open("Data.csv", FILE_WRITE); // TODO - write a CSV file to the sd card that contains time/lat/lon/general info. Use this file to map each lap/testing to a real map for analysis
 
     // Check file opened and write to it
@@ -291,9 +355,7 @@ void writeToSD(bool firstStart)
         // When the HUD is turned on, print a statement to create a break
         if (firstStart)
         {
-            logFile.println("----------------");
-            logFile.println("Starting log - " + String(" 99:99 mm/dd/yy") + String(" - program ver: " + version)); // TODO add date and time of log
-            logFile.println("----------------");
+            logFile.println("Date_Time,Elapsed_Time,Lap,Latitude,Longitude,Elevation,Speed");
             logFile.close();
             return;
         }
