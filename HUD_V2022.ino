@@ -132,8 +132,8 @@ void logGPSdata()
 void updateGPSdata(gps_fix fix) 
 {
     // Update all of the data in currentGPSData
-    currentGPSData.lat = (fix.latitudeL() / 10000000.0f);
-    currentGPSData.lng = (fix.longitudeL() / 10000000.0f);
+    currentGPSData.lat = fix.latitude();
+    currentGPSData.lng = fix.longitude();
     currentGPSData.alt = (fix.altitude() * 3.281f); // Convert meters to feet
     currentGPSData.speedMPH = fix.speed_mph();
     currentGPSData.dateTime = fix.dateTime;
@@ -265,13 +265,10 @@ void displayLCD()
     top.print(":");
     top.print(trackSeconds < 10 ? ("0" + (String)trackSeconds) : trackSeconds); // Add a zero when the seconds are below 10 to display properly
 
-    // TODO print the latitude and longitude (speed may be more benefitial)
+    // Prints speed to driver
     top.setCursor(18, 1);
-    top.print("Lat: ");
-    top.print(currentGPSData.lat); // Display lat starting at 22
-    top.setCursor(30, 1);
-    top.print("Lng:");
-    top.print(currentGPSData.lng); // Displat long starting at 36
+    top.print("Speed: ");
+    top.print(currentGPSData.speedMPH); // Display speed starting at 22
 
     /* Print Bottom */
     // Lap counter
