@@ -9,8 +9,8 @@
 #include <LiquidCrystal.h>
 #include <SPI.h>
 #include <SdFat.h>
-#include <NMEAGPS.h>
-#include <GPSport.h>
+#include <NMEAGPS.h> // Make sure all of the cfg files are setup for this application
+#include <GPSport.h> // This must be setup correctly 
 
 
 // Global Variables
@@ -19,6 +19,23 @@ const String version = "V5.2"; // Used for the LCD and SD log. Probably unnecess
 SdFat SD;
 NMEAGPS gps;
 File logFile;
+
+// GPS acquired variables -- All are initialized to zero just incase gps data is never received
+// Stored in a struct to avoid any name collisions and ease of access
+struct GPSdata {
+    float lat = 0;
+    float lng = 0;
+    int alt = 0;
+    float speedMPH = 0;
+    NeoGPS::time_t dateTime = {}; // Structure that holds all time and date information
+    float latErr = 0;
+    float lngErr = 0;
+    float altErr = 0;
+} currentGPSData, lastGPSData;
+
+// Store how far the vehicle has travelled on current run
+float travelledDistance = 0;
+
 
 // times -- See section 2.a
 unsigned long startTime; // Maintain the time in millis at the start of running the program
@@ -48,15 +65,26 @@ void GPSLoop()
     if(gps.available()) {
         gps_fix fix = gps.read();
 
+        // Found a valid GPS signal with proper location and time, any logging and data updating should be done within this if statement
         if (fix.valid.location && fix.valid.time)
         {
-            //Log / update data and stuff in here
             unsigned int startLogTime = millis();
 
-            DEBUG_PORT.print(fix.latitudeL(), 6);
-            DEBUG_PORT.println();
-            
+            // Update all of the data in currentGPSData
+            currentGPSData.lat = (fix.latitudeL() / 10000000.0f);
+            currentGPSData.lng = (fix.longitudeL() / 10000000.0f);
+            currentGPSData.alt = (fix.altitude() * 3.281f); // Convert meters to feet
+            currentGPSData.speedMPH = fix.speed_mph();
+            currentGPSData.dateTime = fix.dateTime;
+            currentGPSData.latErr = fix.lat_err() * 3.281f;
+            currentGPSData.lngErr = fix.lon_err() * 3.281f;
+            currentGPSData.altErr = fix.alt_err() * 3.281f;
+
+
+            // Update the last point to the current to be used at next interval
+            lastGPSData = currentGPSData;
         }
+
     }
 }
 
@@ -183,10 +211,10 @@ void displayLCD()
     // TODO print the latitude and longitude (speed may be more benefitial)
     top.setCursor(18, 1);
     top.print("Lat: ");
-    // Display lat starting at 22
+    top.print(currentGPSData.lat); // Display lat starting at 22
     top.setCursor(30, 1);
     top.print("Lng:");
-    // Displat long starting at 36
+    top.print(currentGPSData.lng); // Displat long starting at 36
 
     /* Print Bottom */
     // Lap counter
@@ -199,7 +227,7 @@ void displayLCD()
     bottom.setCursor(12, 0);
     bottom.print("LAP DIST:");
     bottom.setCursor(21, 0);
-    // TODO get distance traveled and print it
+    bottom.print(travelledDistance);
 
     // Engine temp
     bottom.setCursor(27, 0);
@@ -235,7 +263,19 @@ void initSD()
         DEBUG_PORT.println("Failed to initialize the SD card...    Will not log this run");
     }
     else
+    {
+        String date = String(currentGPSData.dateTime.month + "_") + String(currentGPSData.dateTime.date + "_") + String(currentGPSData.dateTime.year);
+
+        if (SD.exists("/" + date))
+        {
+            SD.chdir("/" + date);
+        } else {
+            SD.mkdir(date);
+            SD.chdir("/" + date);
+        }
+        
         writeToSD(true);
+    }
 }
 
 // Function to control writing to the SD card
