@@ -102,26 +102,18 @@ void logGPSdata()
         String(currentGPSData.dateTime.year) + " " +
         String(currentGPSData.dateTime.hours) + ":");
 
-    if (currentGPSData.dateTime.minutes >= 10)
-        logFile.print(String(currentGPSData.dateTime.minutes) + ":");
-    else
-        logFile.print("0" + String(currentGPSData.dateTime.minutes) + ":");
+    logFile.print(normalizeTen(currentGPSData.dateTime.minutes) + ":");
     
-    if (currentGPSData.dateTime.seconds >= 10)
-        logFile.print(String(currentGPSData.dateTime.seconds) + ",");
-    else 
-        logFile.print("0" + String(currentGPSData.dateTime.seconds) + ",");
+    logFile.print(normalizeTen(currentGPSData.dateTime.seconds) + ",");
 
     logFile.print(String(trackMinutes) + ":");
-    if(trackSeconds >= 10)
-        logFile.print(String(trackSeconds) + ","); // Log the elapsed time
-    else    
-        logFile.print("0" + String(trackSeconds) + ",");
+   
+    logFile.print(normalizeTen(trackSeconds) + ",");
 
     logFile.print(String(lapCount) + ",");
 
-    logFile.print(String(currentGPSData.lat) + ",");
-    logFile.print(String(currentGPSData.lng) + ",");
+    logFile.print(String(currentGPSData.lat, 6) + ",");
+    logFile.print(String(currentGPSData.lng, 6) + ",");
     logFile.print(String(currentGPSData.alt) + ",");
 
     logFile.print(String(currentGPSData.speedMPH));
@@ -158,9 +150,10 @@ void waitForGPS()
     while(1) {
         if(gps.available()) {
             gps_fix fix = gps.read();
-            if(fix.valid.location && fix.valid.time)
+            if (fix.valid.location && fix.valid.time) {
                 updateGPSdata(fix);
                 break; // GPS verified location, can now break out of loop
+            }
         }
 
         // Flash LED until gps is found
@@ -207,7 +200,7 @@ void setup()
     // Intialize the pin for the built in LED for gps debugging
     pinMode(LED_BUILTIN, OUTPUT);
 
-    // Wait for GPS location
+    // Wait for valid GPS location
     waitForGPS();
 
     // Initialize the SD card
@@ -263,7 +256,7 @@ void displayLCD()
     top.setCursor(12, 1);
     top.print(trackMinutes);
     top.print(":");
-    top.print(trackSeconds < 10 ? ("0" + (String)trackSeconds) : trackSeconds); // Add a zero when the seconds are below 10 to display properly
+    top.print(normalizeTen(trackSeconds)); // Add a zero when the seconds are below 10 to display properly
 
     // Prints speed to driver
     top.setCursor(18, 1);
@@ -295,7 +288,7 @@ void displayLCD()
     bottom.setCursor(5, 1);
     bottom.print(lapMinutes);
     bottom.print(":");
-    bottom.print(lapSeconds < 10 ? ("0" + (String)lapSeconds) : lapSeconds); // Add a zero when the seconds are below 10 to display properly
+    bottom.print(normalizeTen(lapSeconds)); // Add a zero when the seconds are below 10 to display properly
 
     bottom.setCursor(12, 1);
     bottom.print("PREV LAP: ");
@@ -339,6 +332,12 @@ void initSD()
     }
 }
 
+// Helper funtion for when displaying times and there may be a leading 0 to compensate
+String normalizeTen(int time) {
+    return time < 10 ? ("0" + String(time)) : (String(time));
+}
+
+// --- NOT BEING USED AS OF NOW --- //
 // Function to control writing to the SD card
 // More information in section 6 of documentation
 void writeToSD(bool firstStart)
@@ -357,8 +356,6 @@ void writeToSD(bool firstStart)
             return;
         }
 
-        // TODO get the propper formatting for the output
-        logFile.println("Testing writing to an SD card...");
     }
     else
         DEBUG_PORT.println("Couldn't open the file in the SD card");
