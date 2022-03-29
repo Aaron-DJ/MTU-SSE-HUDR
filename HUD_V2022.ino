@@ -144,6 +144,8 @@ void GPSisr(uint8_t c)
 void waitForGPS()
 {
     DEBUG_PORT.println("Waiting for GPS data...");
+    top.setCursor(0, 0);
+    top.print("Waiting for GPS data...");
 
     int lastToggle = millis();
 
