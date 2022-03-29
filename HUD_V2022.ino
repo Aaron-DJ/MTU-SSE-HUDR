@@ -9,8 +9,8 @@
 #include <LiquidCrystal.h>
 #include <SPI.h>
 #include <SdFat.h>
-#include <NMEAGPS.h> // Make sure all of the cfg files are setup for this application
-#include <GPSport.h> // This must be setup correctly 
+#include <NMEAGPS.h> // Make sure all of the cfg files are setup for this application. See documentation
+#include <GPSport.h> // This must be setup correctly. See documentation
 
 
 // Global Variables
@@ -35,7 +35,6 @@ struct GPSdata {
 
 // Store how far the vehicle has travelled on current run
 float travelledDistance = 0;
-
 
 // times -- See section 2.a
 unsigned long startTime; // Maintain the time in millis at the start of running the program
@@ -143,17 +142,18 @@ void GPSisr(uint8_t c)
 // Waits until GPSisr provides a valid location
 void waitForGPS()
 {
-    DEBUG_PORT.println("Waiting for GPS data...");
+    DEBUG_PORT.println("Waiting for GPS data..."); // Print to serial debug for verification of GPS
     top.setCursor(0, 0);
-    top.print("Waiting for GPS data...");
+    top.print("Waiting for GPS data..."); // Print to HUD so user can see what is happening
 
-    int lastToggle = millis();
+    int lastToggle = millis(); // Start time of the waiting for GPS
 
-    while(1) {
+    while(1) { // Loop indefinitely until GPS signal is acquired
         if(gps.available()) {
             gps_fix fix = gps.read();
-            if (fix.valid.location && fix.valid.time) {
-                updateGPSdata(fix);
+            if (fix.valid.location && fix.valid.time) { // Valid GPS signal is found
+                updateGPSdata(fix); // Set initial GPS data
+                lastGPSData = currentGPSData; // Set the lastGPSData so that it has a starting value
                 break; // GPS verified location, can now break out of loop
             }
         }
@@ -165,8 +165,10 @@ void waitForGPS()
         }
     }
 
+    // Turn off debug led
     digitalWrite(LED_BUILTIN, LOW);
 
+    // Reset GPS overrun
     gps.overrun(false);
 }
 
@@ -235,7 +237,7 @@ void lapReset()
     lapCount++;
     prevLapTime = lapTime;
     prevLapsTime += prevLapTime;
-    prevLapString = String(prevLapTime / 60000) + ":" + ((prevLapTime % 60000) / 1000 < 10 ? ("0" + String((prevLapTime % 60000) / 1000)) : String((prevLapTime % 60000) / 1000)); // Creates a string for the previous lap time
+    prevLapString = String(prevLapTime / 60000) + ":" + normalizeTen((prevLapTime % 60000) / 1000); // Creates a string for the previous lap time
 }
 
 // Function to handle displaying data to the LCD
@@ -308,25 +310,23 @@ void displayLCD()
 void initSD() 
 {
     
-    if (!SD.begin(CS))
+    if (!SD.begin(CS)) // SD doesnt initialize, likely not inserted. Print error
     {
         DEBUG_PORT.println("Failed to initialize the SD card...    Will not log this run");
     }
     else
     {
-        String date = String(currentGPSData.dateTime.month) + "_" + String(currentGPSData.dateTime.date) + "_" + String(currentGPSData.dateTime.year);
-        DEBUG_PORT.println("Date: " + date);
-        if (SD.exists("/" + date))
+        String date = String(currentGPSData.dateTime.month) + "_" + String(currentGPSData.dateTime.date) + "_" + String(currentGPSData.dateTime.year); // Create a string of the data EX: 03_29_2022
+        DEBUG_PORT.println("Date: " + date); // print the date for debug purposes.
+        if (!SD.exists("/" + date)) // Check if there has been a folder made today. If not, create a new folder with the date.
         {
-            SD.chdir("/" + date);
-        } else {
             SD.mkdir(date);
-            SD.chdir("/" + date);
-        }
+        } 
+        SD.chdir("/" + date); // Move into the folder with todays date
 
-        String time = String(currentGPSData.dateTime.hours) + String(currentGPSData.dateTime.minutes) + String(currentGPSData.dateTime.seconds);
+        String time = String(currentGPSData.dateTime.hours) + String(currentGPSData.dateTime.minutes) + String(currentGPSData.dateTime.seconds); // Create a string for time in hhmmss
 
-        logFile = SD.open(time + ".txt", FILE_WRITE);
+        logFile = SD.open(time + ".txt", FILE_WRITE); // Open/create a new file with the name of time within the folder for the current date
 
         logFile.println("Date_Time,Elapsed_Time,Lap,Latitude,Longitude,Elevation,Speed");
         // Temp remove this, look into for future... Reading and closing file is not feasable. Add switch for logging?
@@ -334,7 +334,7 @@ void initSD()
     }
 }
 
-// Helper funtion for when displaying times and there may be a leading 0 to compensate
+// Helper function for when displaying times and there may be a leading 0 to compensate
 String normalizeTen(int time) {
     return time < 10 ? ("0" + String(time)) : (String(time));
 }
