@@ -22,6 +22,7 @@ File logFile;
 
 // GPS acquired variables -- All are initialized to zero just incase gps data is never received
 // Stored in a struct to avoid any name collisions and ease of access
+// Potentially refactor to only use the NeoGPS Fix data structure in the future... NeoGPS::Location_t
 struct GPSdata {
     float lat = 0;
     float lng = 0;
@@ -31,7 +32,8 @@ struct GPSdata {
     float latErr = 0;
     float lngErr = 0;
     float altErr = 0;
-} currentGPSData, lastGPSData;
+} currentGPSData; 
+gps_fix lastGPSData;
 
 // Store how far the vehicle has travelled on current run
 float travelledDistance = 0;
@@ -72,6 +74,12 @@ void GPSLoop()
 
             updateGPSdata(fix);
 
+            // Update distance travelled, still WIP
+            float distance = fix.location.DistanceMiles(lastGPSData.location) * 5280; // Find distance travelled since last GPS ping in feet
+            if(distance > 10) { // If the ping is more than 10 feet away, add it to the distance tavelled. 10 feet is arbitrary, i figured 0 would cause in accuracies when not moving.
+                travelledDistance += distance / 5280;
+            }
+
             logGPSdata();
             lastLoggingTime = millis() - startLogTime;
 
@@ -85,7 +93,7 @@ void GPSLoop()
             }
 
             // Update the last point to the current to be used at next interval
-            lastGPSData = currentGPSData;
+            lastGPSData = fix;
         }
 
     }
@@ -153,7 +161,7 @@ void waitForGPS()
             gps_fix fix = gps.read();
             if (fix.valid.location && fix.valid.time) { // Valid GPS signal is found
                 updateGPSdata(fix); // Set initial GPS data
-                lastGPSData = currentGPSData; // Set the lastGPSData so that it has a starting value
+                lastGPSData = fix; // Set the lastGPSData so that it has a starting value
                 break; // GPS verified location, can now break out of loop
             }
         }
