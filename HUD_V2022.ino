@@ -273,7 +273,8 @@ void displayLCD()
     // Prints speed to driver
     top.setCursor(18, 1);
     top.print("Speed: ");
-    top.print(round(currentGPSData.speedMPH) + " MPH"); // Display speed starting at 22
+    top.setCursor(30, 1);
+    top.print(String(round(currentGPSData.speedMPH)) + " MPH"); // Display speed starting at 22
 
     /* Print Bottom */
     // Lap counter
