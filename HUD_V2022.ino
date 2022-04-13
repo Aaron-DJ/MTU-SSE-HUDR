@@ -151,12 +151,11 @@ void GPSisr(uint8_t c)
 void waitForGPS()
 {
     DEBUG_PORT.println("Waiting for GPS data..."); // Print to serial debug for verification of GPS
-    top.setCursor(0, 0);
-    top.print("Waiting for GPS data..."); // Print to HUD so user can see what is happening
 
     int lastToggle = millis(); // Start time of the waiting for GPS
 
     while(1) { // Loop indefinitely until GPS signal is acquired
+        
         if(gps.available()) {
             gps_fix fix = gps.read();
             if (fix.valid.location && fix.valid.time) { // Valid GPS signal is found
@@ -166,9 +165,13 @@ void waitForGPS()
             }
         }
 
-        // Flash LED until gps is found
-        if(millis() - lastToggle > 500) {
-            lastToggle += 500;
+        // Flash LED until gps is found also display to HUD
+        if(millis() - lastToggle > 250) {
+            top.clear();    // Removes random characters due to noise
+            bottom.clear(); // Removes random characters due to noise
+            top.setCursor(0, 0);
+            top.print("Waiting for GPS data..."); // Print to HUD so user can see what is happening
+            lastToggle = millis();
             digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
         }
     }
