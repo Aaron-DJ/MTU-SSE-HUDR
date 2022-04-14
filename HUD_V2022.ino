@@ -61,10 +61,12 @@ LiquidCrystal top(RS, E1, DB4, DB5, DB6, DB7);
 LiquidCrystal bottom(RS, E2, DB4, DB5, DB6, DB7);
 
 
-void GPSLoop()
+bool GPSLoop()
 {
+    bool foundSignal = false;
     if(gps.available()) {
         gps_fix fix = gps.read();
+        foundSignal = true;
 
         // Found a valid GPS signal with proper location and time, any logging and data updating should be done within this if statement
         if (fix.valid.location && fix.valid.time)
@@ -97,6 +99,7 @@ void GPSLoop()
         }
 
     }
+    return foundSignal;
 }
 
 // Write all of the required GPS data to the logFile
@@ -228,8 +231,8 @@ void setup()
  */
 void loop()
 {    
-    GPSLoop();
-    displayLCD();
+    bool signal = GPSLoop();
+    displayLCD(signal);
 
     if (gps.overrun())
     {
@@ -253,7 +256,7 @@ void lapReset()
 
 // Function to handle displaying data to the LCD
 // More information in section 4.a 
-void displayLCD()
+void displayLCD(bool gpsSignal)
 {
 
     // Update Time Variables
@@ -277,7 +280,7 @@ void displayLCD()
     top.setCursor(18, 1);
     top.print("Speed: ");
     top.setCursor(30, 1);
-    top.print(String(round(currentGPSData.speedMPH)) + " MPH"); // Display speed starting at 22
+    top.print(gpsSignal ? String(round(currentGPSData.speedMPH)) + " MPH" : "NO SIG MPH"); // Display speed starting at 22
 
     /* Print Bottom */
     // Lap counter
